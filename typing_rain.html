@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Rain</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            height: 100vh;
+            position: relative;
+        }
+
+        /* City Skyline Background */
+        .city-background {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40%;
+            background: linear-gradient(to top, #0a0a0a 0%, #1a1a1a 100%);
+            z-index: 1;
+        }
+
+        .building {
+            position: absolute;
+            bottom: 0;
+            background: linear-gradient(to top, #2d2d2d 0%, #1a1a1a 100%);
+            border-left: 2px solid #0a0a0a;
+            border-right: 2px solid #0a0a0a;
+        }
+
+        .building::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 255, 255, 0.05) 10px,
+                rgba(255, 255, 255, 0.05) 12px
+            );
+        }
+
+        .window {
+            position: absolute;
+            background: #ffd700;
+            box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Game Container */
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            z-index: 10;
+        }
+
+        /* UI Panel */
+        .ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 100;
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        .stat-item {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        /* Game Area */
+        .game-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Raindrop Word */
+        .raindrop {
+            position: absolute;
+            color: #87ceeb;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(135, 206, 235, 0.8),
+                         0 0 20px rgba(135, 206, 235, 0.6),
+                         0 0 30px rgba(135, 206, 235, 0.4);
+            animation: fall linear;
+            white-space: nowrap;
+            z-index: 50;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .raindrop.hit {
+            animation: explode 0.3s ease-out forwards;
+        }
+
+        @keyframes fall {
+            from {
+                transform: translateY(-50px);
+            }
+            to {
+                transform: translateY(100vh);
+            }
+        }
+
+        @keyframes explode {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        /* Input Area */
+        .input-container {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            text-align: center;
+        }
+
+        .input-label {
+            color: white;
+            font-size: 16px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #wordInput {
+            width: 300px;
+            padding: 15px;
+            font-size: 24px;
+            text-align: center;
+            border: 3px solid rgba(135, 206, 235, 0.8);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #87ceeb;
+            outline: none;
+            text-transform: lowercase;
+            box-shadow: 0 0 20px rgba(135, 206, 235, 0.5);
+        }
+
+        #wordInput:focus {
+            border-color: #00ffff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+        }
+
+        #wordInput.correct {
+            border-color: #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+        }
+
+        /* Game Over Overlay */
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+        }
+
+        .game-over.show {
+            display: flex;
+        }
+
+        .game-over h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .game-over button {
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #87ceeb;
+            color: #0a0a0a;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        .game-over button:hover {
+            background: #00ffff;
+            transform: scale(1.05);
+        }
+
+        /* Start Screen */
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+        }
+
+        .start-screen.hidden {
+            display: none;
+        }
+
+        .start-screen h1 {
+            font-size: 64px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(135, 206, 235, 0.8);
+        }
+
+        .start-screen p {
+            font-size: 20px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .start-screen button {
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #87ceeb;
+            color: #0a0a0a;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .start-screen button:hover {
+            background: #00ffff;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <!-- City Background -->
+    <div class="city-background" id="cityBackground"></div>
+
+    <!-- Game Container -->
+    <div class="game-container">
+        <!-- UI Panel -->
+        <div class="ui-panel">
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-label">Score</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Accuracy</div>
+                    <div class="stat-value" id="accuracy">100%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Words Typed</div>
+                    <div class="stat-value" id="wordsTyped">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div class="game-area" id="gameArea"></div>
+
+        <!-- Input Container -->
+        <div class="input-container">
+            <div class="input-label">Type the word:</div>
+            <input type="text" id="wordInput" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <h1>🌧️ Typing Rain</h1>
+            <p>Type the falling words before they reach the bottom!</p>
+            <p>Words are 4 letters only. Difficulty increases slowly.</p>
+            <button onclick="startGame()">Start Game</button>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div class="game-over" id="gameOver">
+            <h1>Game Over!</h1>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <p>Accuracy: <span id="finalAccuracy">0%</span></p>
+            <p>Words Typed: <span id="finalWordsTyped">0</span></p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            score: 0,
+            wordsTyped: 0,
+            wordsCorrect: 0,
+            wordsMissed: 0,
+            activeWords: [],
+            gameRunning: false,
+            difficulty: 1.0,
+            spawnInterval: 2000, // milliseconds
+            fallSpeed: 1.0, // pixels per frame
+            lastSpawnTime: 0
+        };
+
+        // 4-letter word list
+        const wordList = [
+            'able', 'acid', 'aged', 'also', 'area', 'army', 'away', 'baby', 'back', 'ball',
+            'band', 'bank', 'base', 'bath', 'bear', 'beat', 'been', 'bell', 'best', 'bill',
+            'bird', 'blue', 'boat', 'body', 'book', 'both', 'bowl', 'burn', 'busy', 'call',
+            'calm', 'came', 'camp', 'card', 'care', 'case', 'cash', 'cast', 'chat', 'chip',
+            'city', 'club', 'coal', 'coat', 'code', 'cold', 'come', 'cook', 'cool', 'cope',
+            'copy', 'core', 'cost', 'crew', 'crop', 'crow', 'cube', 'cure', 'curl', 'dare',
+            'dark', 'dash', 'data', 'date', 'dawn', 'days', 'dead', 'deal', 'dear', 'debt',
+            'deck', 'deep', 'deer', 'deny', 'desk', 'dial', 'dice', 'diet', 'dime', 'dirt',
+            'disc', 'dish', 'disk', 'dive', 'dock', 'does', 'done', 'door', 'dose', 'down',
+            'drag', 'draw', 'drew', 'drop', 'drum', 'dual', 'duck', 'dull', 'duly', 'dumb',
+            'dune', 'dusk', 'dust', 'duty', 'each', 'earn', 'ease', 'east', 'easy', 'echo',
+            'edge', 'edit', 'else', 'even', 'ever', 'evil', 'exam', 'exit', 'face', 'fact',
+            'fade', 'fail', 'fair', 'fake', 'fall', 'fame', 'fang', 'farm', 'fast', 'fate',
+            'fear', 'feat', 'feed', 'feel', 'feet', 'fell', 'felt', 'fern', 'file', 'fill',
+            'film', 'find', 'fine', 'fire', 'firm', 'fish', 'fist', 'five', 'flag', 'flat',
+            'flew', 'flip', 'flow', 'flux', 'foam', 'foil', 'fold', 'folk', 'fond', 'font',
+            'food', 'fool', 'foot', 'ford', 'fork', 'form', 'fort', 'foul', 'four', 'free',
+            'frog', 'from', 'fuel', 'full', 'fume', 'fund', 'fury', 'fuse', 'fuss', 'gain',
+            'gale', 'game', 'gang', 'gape', 'gasp', 'gate', 'gave', 'gaze', 'gear', 'gene',
+            'germ', 'gift', 'girl', 'give', 'glad', 'glee', 'glow', 'glue', 'goal', 'goat',
+            'goes', 'gold', 'golf', 'gone', 'good', 'gore', 'gown', 'grab', 'grad', 'gray',
+            'grew', 'grey', 'grid', 'grim', 'grin', 'grip', 'grow', 'gulf', 'gush', 'gust',
+            'guts', 'guys', 'hack', 'hail', 'hair', 'hake', 'half', 'hall', 'halt', 'hand',
+            'hang', 'hard', 'harm', 'harp', 'harsh', 'hate', 'haul', 'have', 'hawk', 'haze',
+            'hazy', 'head', 'heal', 'heap', 'hear', 'heat', 'heck', 'heed', 'heel', 'heir',
+            'held', 'hell', 'helm', 'help', 'hemp', 'herb', 'herd', 'here', 'hero', 'hers',
+            'hide', 'high', 'hike', 'hill', 'hilt', 'hind', 'hint', 'hire', 'hiss', 'hive',
+            'hoax', 'hobo', 'hock', 'hold', 'hole', 'holy', 'home', 'hone', 'honk', 'hood',
+            'hoof', 'hook', 'hoop', 'hoot', 'hope', 'horn', 'hose', 'host', 'hour', 'howl',
+            'huge', 'hulk', 'hull', 'hump', 'hung', 'hunk', 'hunt', 'hurl', 'hurt', 'hush',
+            'hymn', 'icon', 'idea', 'idle', 'idol', 'inch', 'info', 'into', 'iron', 'isle',
+            'itch', 'item', 'jade', 'jail', 'jake', 'jamb', 'jape', 'jars', 'jaws', 'jazz',
+            'jean', 'jeep', 'jeer', 'jell', 'jerk', 'jest', 'jets', 'jibe', 'jigs', 'jilt',
+            'jive', 'jobs', 'jock', 'joey', 'jogs', 'join', 'joke', 'jolt', 'jots', 'jowl',
+            'joys', 'judo', 'jugs', 'jump', 'junk', 'jury', 'just', 'jute', 'kale', 'keel',
+            'keen', 'keep', 'kegs', 'kelp', 'kept', 'keys', 'khan', 'kick', 'kids', 'kill',
+            'kiln', 'kilo', 'kilt', 'kind', 'king', 'kink', 'kiss', 'kite', 'kits', 'kiwi',
+            'knee', 'knew', 'knit', 'knob', 'knot', 'know', 'labs', 'lace', 'lack', 'lacy',
+            'lade', 'lady', 'laid', 'lain', 'lair', 'lake', 'lamb', 'lame', 'lamp', 'land',
+            'lane', 'lank', 'laps', 'lard', 'lark', 'lash', 'lass', 'last', 'late', 'lath',
+            'laud', 'lava', 'lawn', 'laws', 'lays', 'laze', 'lazy', 'lead', 'leaf', 'leak',
+            'lean', 'leap', 'leas', 'leek', 'leer', 'left', 'legs', 'lend', 'lens', 'lent',
+            'less', 'lest', 'lets', 'levy', 'lewd', 'liar', 'lice', 'lick', 'lids', 'lied',
+            'lien', 'lies', 'lieu', 'life', 'lift', 'like', 'lilt', 'lily', 'limb', 'lime',
+            'limp', 'line', 'link', 'lint', 'lion', 'lips', 'lisp', 'list', 'live', 'load',
+            'loaf', 'loam', 'loan', 'lobe', 'lobs', 'loch', 'lock', 'loco', 'lode', 'loft',
+            'loge', 'logo', 'logs', 'loin', 'lone', 'long', 'look', 'loom', 'loon', 'loop',
+            'loot', 'lope', 'lops', 'lord', 'lore', 'lorn', 'lose', 'loss', 'lost', 'loth',
+            'lots', 'loud', 'lout', 'love', 'lows', 'luau', 'lube', 'luck', 'luff', 'luge',
+            'lugs', 'lull', 'lulu', 'lump', 'luna', 'lune', 'lung', 'lunk', 'lunt', 'lure',
+            'lurk', 'lush', 'lust', 'lute', 'lynx', 'lyre', 'mace', 'made', 'mage', 'magi',
+            'maid', 'mail', 'maim', 'main', 'make', 'male', 'mall', 'malt', 'mama', 'mana',
+            'mane', 'mans', 'many', 'maps', 'mare', 'mark', 'marl', 'mars', 'mart', 'mash',
+            'mask', 'mass', 'mast', 'mate', 'math', 'mats', 'maul', 'maws', 'maxi', 'maze',
+            'mead', 'meal', 'mean', 'meat', 'meek', 'meet', 'meld', 'melt', 'memo', 'mend',
+            'menu', 'meow', 'mere', 'mesa', 'mesh', 'mess', 'meta', 'mica', 'mice', 'mick',
+            'midi', 'mien', 'miff', 'mike', 'mild', 'mile', 'milk', 'mill', 'milt', 'mime',
+            'mind', 'mine', 'mini', 'mink', 'mint', 'minx', 'mire', 'mirk', 'miry', 'mise',
+            'miss', 'mist', 'mite', 'mitt', 'moan', 'moat', 'mobs', 'mock', 'mode', 'mods',
+            'mold', 'mole', 'moll', 'molt', 'moms', 'monk', 'mono', 'mood', 'moon', 'moor',
+            'moot', 'mope', 'mops', 'more', 'morn', 'moss', 'most', 'mote', 'moth', 'move',
+            'mown', 'mows', 'much', 'muck', 'muds', 'muff', 'mugs', 'mule', 'mull', 'mums',
+            'murk', 'muse', 'mush', 'musk', 'muss', 'must', 'mute', 'mutt', 'myth', 'nabs',
+            'nags', 'nail', 'name', 'nape', 'naps', 'nard', 'nary', 'nave', 'navy',
+            'nays', 'neap', 'near', 'neat', 'nebs', 'neck', 'need', 'neon', 'nerd',
+            'ness', 'nest', 'nets', 'news', 'newt', 'next', 'nibs', 'nice', 'nick', 'nigh',
+            'nill', 'nils', 'nine', 'nips', 'nite', 'nits', 'nixy', 'node', 'nods', 'noel',
+            'noes', 'nogs', 'noir', 'nolo', 'nome', 'none', 'nook', 'noon', 'nope', 'norm',
+            'nose', 'nosh', 'nosy', 'nota', 'note', 'noun', 'nous', 'nova', 'nows', 'nubs',
+            'nude', 'nuke', 'null', 'numb', 'nuns', 'nuts', 'oafs', 'oaks', 'oars', 'oath',
+            'oats', 'obey', 'obis', 'obit', 'oboe', 'odds', 'odes', 'odic', 'odor', 'odyl',
+            'offs', 'ogee', 'ogle', 'ogre', 'ohed', 'ohms', 'oils', 'oily', 'oink', 'okay',
+            'okra', 'olds', 'oleo', 'omen', 'omit', 'once', 'ones', 'only', 'onto', 'onus',
+            'onyx', 'oops', 'ooze', 'oozy', 'opal', 'open', 'opts', 'opus', 'oral', 'orbs',
+            'ores', 'orzo', 'osar', 'oses', 'otic', 'otto', 'ouch', 'ours', 'oust',
+            'outs', 'ouzo', 'oval', 'oven', 'over', 'owed', 'owes', 'owls', 'owns', 'oxen',
+            'oxes', 'oyer', 'oyes', 'pace', 'pack', 'pact', 'pads', 'page', 'paid', 'pail',
+            'pain', 'pair', 'pale', 'pall', 'palm', 'pals', 'pane', 'pang', 'pans', 'pant',
+            'papa', 'paps', 'para', 'pard', 'pare', 'park', 'pars', 'part', 'pash', 'pass',
+            'past', 'pate', 'path', 'pats', 'pave', 'pawl', 'pawn', 'paws', 'pays', 'peak',
+            'peal', 'pean', 'pear', 'peas', 'peat', 'peck', 'peed', 'peek', 'peel', 'peen',
+            'peep', 'peer', 'pees', 'pegs', 'peke', 'pelf', 'pelt', 'pend', 'pens', 'pent',
+            'peon', 'peps', 'pere', 'peri', 'perk', 'perm', 'pert', 'peso', 'pest', 'pets',
+            'pews', 'pfft', 'phat', 'phew', 'phis', 'pica', 'pick', 'pics', 'pied', 'pier',
+            'pies', 'pigs', 'pike', 'pile', 'pill', 'pine', 'ping', 'pink', 'pins',
+            'pint', 'piny', 'pion', 'pipe', 'pips', 'pipy', 'pish', 'pita', 'pith',
+            'pits', 'pity', 'pixy', 'plan', 'plat', 'play', 'plea', 'pled', 'plod', 'plop',
+            'plot', 'plow', 'ploy', 'plug', 'plum', 'plus', 'pock', 'poco', 'pods', 'poem',
+            'poet', 'poke', 'poky', 'pole', 'poll', 'polo', 'pols', 'poly', 'pome', 'pomp',
+            'pond', 'pone', 'pong', 'pons', 'pony', 'pooh', 'pool', 'poop', 'poor', 'pope',
+            'pops', 'pore', 'pork', 'port', 'pose', 'posh', 'post', 'posy', 'pots',
+            'pouf', 'pour', 'pout', 'pows', 'poxy', 'pram', 'prat', 'prau', 'pray', 'prep',
+            'prey', 'prig', 'prim', 'pris', 'proa', 'prod', 'prof', 'prog', 'prom', 'prop',
+            'pros', 'prow', 'pubs', 'puce', 'puck', 'puds', 'puff', 'pugs', 'puja', 'puke',
+            'pula', 'pule', 'puli', 'pull', 'pulp', 'puls', 'puma', 'pump', 'puna', 'punk',
+            'puns', 'punt', 'puny', 'pupa', 'pups', 'pure', 'puri', 'purl', 'purr', 'purs',
+            'push', 'puss', 'puts', 'putt', 'pyas', 'pyes', 'pyic', 'pyin', 'pyre',
+            'qadi', 'qaid', 'qats', 'qoph', 'quad', 'quag', 'quay', 'quey', 'quid', 'quin',
+            'quip', 'quit', 'quiz', 'race', 'rack', 'racy', 'rads', 'raff', 'raft', 'raga',
+            'rage', 'rags', 'raid', 'rail', 'rain', 'raja', 'rake', 'raki', 'rale', 'rami',
+            'ramp', 'rams', 'rand', 'rang', 'rani', 'rank', 'rant', 'raps', 'rapt',
+            'rare', 'rase', 'rash', 'rasp', 'rate', 'rath', 'rato', 'rats', 'rave', 'raws',
+            'rays', 'raze', 'razz', 'read', 'real', 'ream', 'reap', 'rear', 'rebs', 'reck',
+            'recs', 'redd', 'rede', 'redo', 'reds', 'reed', 'reef', 'reek', 'reel', 'rees',
+            'refs', 'reft', 'regs', 'reif', 'rein', 'reis', 'rely', 'rems', 'rend', 'rent',
+            'reps', 'resh', 'rest', 'rete', 'rets', 'revs', 'rhea', 'rhos', 'rhus', 'rial',
+            'rias', 'ribs', 'rice', 'rich', 'rick', 'ride', 'rids', 'riel', 'rife', 'riff',
+            'rifs', 'rift', 'rigs', 'rile', 'rill', 'rime', 'rims', 'rimy', 'rind', 'ring',
+            'rink', 'rins', 'riot', 'ripe', 'rips', 'rise', 'risk', 'rite', 'ritz', 'rive',
+            'road', 'roam', 'roan', 'roar', 'robe', 'robs', 'rock', 'rocs', 'rode', 'rods',
+            'roes', 'roil', 'role', 'rolf', 'roll', 'romp', 'roms', 'rood', 'roof', 'rook',
+            'room', 'roos', 'root', 'rope', 'ropy', 'rose', 'rosy', 'rota', 'rote', 'roti',
+            'rotl', 'roto', 'rots', 'roue', 'roup', 'rout', 'roux', 'rove', 'rows', 'rube',
+            'rubs', 'ruby', 'ruck', 'rudd', 'rude', 'rued', 'ruer', 'rues', 'ruff', 'rugs',
+            'ruin', 'rule', 'ruly', 'rump', 'rums', 'rune', 'rung', 'runs', 'runt', 'ruse',
+            'rush', 'rusk', 'rust', 'ruth', 'ruts', 'ryas', 'ryes', 'ryke', 'ryot', 'sabe',
+            'sabs', 'sack', 'sacs', 'sade', 'sadi', 'sado', 'sads', 'safe', 'saga', 'sage',
+            'sago', 'sags', 'sagy', 'said', 'sail', 'sain', 'sake', 'saki', 'sale', 'sall',
+            'salp', 'sals', 'salt', 'same', 'sand', 'sane', 'sang', 'sank', 'sans', 'saps',
+            'sard', 'sari', 'sark', 'sash', 'sass', 'sate', 'sati', 'saul', 'save', 'sawn',
+            'saws', 'says', 'scab', 'scad', 'scam', 'scan', 'scar', 'scat', 'scaw',
+            'scop', 'scot', 'scow', 'scry', 'scud', 'scup', 'scut', 'seal', 'seam',
+            'sear', 'seas', 'seat', 'secs', 'sect', 'seed', 'seek', 'seel', 'seem', 'seen',
+            'seep', 'seer', 'sees', 'sego', 'segs', 'seis', 'self', 'sell', 'sels', 'seme',
+            'semi', 'send', 'sent', 'seps', 'sept', 'sera', 'sere', 'serf', 'sers', 'seta',
+            'sets', 'sewn', 'sews', 'sexy', 'shad', 'shag', 'shah', 'sham', 'shat', 'shaw',
+            'shay', 'shea', 'shed', 'shes', 'shew', 'shim', 'shin', 'ship', 'shiv', 'shmo',
+            'shod', 'shoe', 'shog', 'shoo', 'shop', 'shot', 'show', 'shri', 'shul', 'shun',
+            'shut', 'sial', 'sibb', 'sibs', 'sice', 'sick', 'sics', 'side', 'sidy', 'sift',
+            'sigh', 'sign', 'sika', 'sike', 'sild', 'silk', 'sill', 'silo', 'silt', 'sima',
+            'simp', 'sims', 'sine', 'sing', 'sinh', 'sink', 'sins', 'sips', 'sire', 'sirs',
+            'sise', 'siss', 'site', 'sith', 'sits', 'size', 'sizy', 'skag', 'skas', 'skat',
+            'skee', 'skeg', 'skep', 'skew', 'skid', 'skim', 'skin', 'skip', 'skis', 'skit',
+            'skol', 'skry', 'skua', 'slab', 'slag', 'slam', 'slap', 'slat', 'slaw', 'slay',
+            'sled', 'slew', 'slid', 'slim', 'slip', 'slit', 'slob', 'sloe', 'slog', 'slop',
+            'slot', 'slow', 'slub', 'slue', 'slug', 'slum', 'slur', 'smew', 'smog',
+            'smug', 'snag', 'snap', 'snaw', 'sned', 'snib', 'snip', 'snit', 'snob',
+            'snog', 'snot', 'snow', 'snub', 'snug', 'snye', 'soak', 'soap', 'soar', 'sobs',
+            'soca', 'sock', 'soda', 'sods', 'sofa', 'soft', 'sogs', 'soho', 'soil', 'soja',
+            'soke', 'sola', 'sold', 'sole', 'soli', 'solo', 'sols', 'soma', 'some', 'soms',
+            'sone', 'song', 'sons', 'sook', 'soon', 'soot', 'soph', 'sops', 'sora', 'sorb',
+            'sord', 'sore', 'sori', 'sorn', 'sort', 'soth', 'sots', 'souk', 'soul', 'soup',
+            'sour', 'sous', 'sown', 'sows', 'soya', 'soys', 'spae', 'spam', 'span', 'spar',
+            'spas', 'spat', 'spay', 'spec', 'sped', 'spew', 'spin', 'spit', 'spiv',
+            'spot', 'spry', 'spud', 'spue', 'spun', 'spur', 'sris', 'stab', 'stag', 'star',
+            'stat', 'staw', 'stay', 'stem', 'step', 'stet', 'stew', 'stey', 'stir', 'stoa',
+            'stob', 'stop', 'stot', 'stow', 'stub', 'stud', 'stum', 'stun', 'stye', 'suba',
+            'subs', 'such', 'sudd', 'suds', 'sued', 'suer', 'sues', 'suet', 'sugh', 'suit',
+            'sulk', 'sulu', 'sumo', 'sump', 'sums', 'sung', 'sunk', 'sunn', 'suns', 'supe',
+            'sups', 'suqs', 'sura', 'surd', 'sure', 'surf', 'suss', 'swab', 'swag', 'swam',
+            'swan', 'swap', 'swat', 'sway', 'swig', 'swim', 'swob', 'swop', 'swot', 'swum',
+            'sybo', 'syce', 'syke', 'syli', 'sync', 'syne', 'syph', 'tabs', 'tabu', 'tace',
+            'tach', 'tack', 'taco', 'tact', 'tads', 'tael', 'tags', 'tahr', 'tail', 'tain',
+            'taka', 'take', 'tala', 'talc', 'tale', 'tali', 'talk', 'tall', 'tame', 'tamp',
+            'tams', 'tang', 'tank', 'tans', 'taos', 'tapa', 'tape', 'taps', 'tare', 'tarn',
+            'taro', 'tarp', 'tars', 'tart', 'tase', 'task', 'tass', 'tate', 'tats', 'taus',
+            'taut', 'tavs', 'taws', 'taxa', 'taxi', 'teak', 'teal', 'team', 'tear', 'teas',
+            'teat', 'tech', 'teds', 'teed', 'teel', 'teem', 'teen', 'tees', 'teff', 'tegg',
+            'tegs', 'teil', 'tela', 'tele', 'tell', 'tels', 'temp', 'tend', 'tens', 'tent',
+            'tepa', 'term', 'tern', 'test', 'teth', 'tets', 'tews', 'text', 'thae', 'than',
+            'that', 'thaw', 'thee', 'them', 'then', 'thew', 'they', 'thin', 'this', 'thof',
+            'thon', 'thou', 'thro', 'thru', 'thud', 'thug', 'thus', 'tick', 'tics', 'tide',
+            'tidy', 'tied', 'tier', 'ties', 'tiff', 'tike', 'tiki', 'tile', 'till', 'tils',
+            'tilt', 'time', 'tine', 'ting', 'tins', 'tint', 'tiny', 'tipi', 'tips', 'tire',
+            'tirl', 'tiro', 'titi', 'tits', 'tivy', 'toad', 'toed', 'toes', 'toff', 'toft',
+            'toga', 'togs', 'toil', 'toit', 'toke', 'tola', 'told', 'tole', 'toll', 'tolt',
+            'tolu', 'tomb', 'tome', 'toms', 'tone', 'tong', 'tons', 'tony', 'took', 'tool',
+            'toom', 'toon', 'toot', 'tope', 'topi', 'topo', 'tops', 'tora', 'torc', 'tore',
+            'tori', 'torn', 'toro', 'torr', 'tors', 'tort', 'tory', 'tosh', 'toss', 'tost',
+            'tote', 'tots', 'tour', 'tout', 'town', 'tows', 'towy', 'toyo', 'toys', 'toze',
+            'trad', 'tram', 'trap', 'tray', 'tree', 'tref', 'trek', 'tres', 'tret', 'trey',
+            'trig', 'trim', 'trio', 'trip', 'trod', 'trog', 'trop', 'trot', 'trow', 'troy',
+            'true', 'trug', 'tsar', 'tsks', 'tuba', 'tube', 'tubs', 'tuck', 'tufa', 'tuff',
+            'tuft', 'tugs', 'tuis', 'tule', 'tump', 'tuna', 'tune', 'tung', 'tuns', 'tups',
+            'turf', 'turk', 'turn', 'tush', 'tusk', 'tuts', 'tutu', 'twae', 'twas',
+            'twee', 'twig', 'twin', 'twit', 'twos', 'tyee', 'tyer', 'tyes', 'tyin', 'tyke',
+            'tyne', 'type', 'typo', 'typp', 'typy', 'tyre', 'tyro', 'tzar', 'udon', 'udos',
+            'ughs', 'ugly', 'ukes', 'ulan', 'ulna', 'ulus', 'ulva', 'umbo', 'umma', 'umph',
+            'umps', 'unai', 'unau', 'unbe', 'unci', 'unco', 'unde', 'undo', 'undy', 'unit',
+            'unto', 'upas', 'upby', 'updo', 'upon', 'urbs', 'urds', 'urea', 'urge', 'uric',
+            'urns', 'urps', 'ursa', 'urus', 'used', 'user', 'uses', 'utas', 'utes', 'uvea',
+            'vacs', 'vade', 'vagi', 'vail', 'vain', 'vair', 'vale', 'vamp', 'vane', 'vang',
+            'vans', 'vara', 'vars', 'vary', 'vasa', 'vase', 'vast', 'vats', 'vatu', 'vaus',
+            'vavs', 'vaws', 'veal', 'veep', 'veer', 'vees', 'veil', 'vein', 'vela', 'veld',
+            'vena', 'vend', 'vent', 'vera', 'verb', 'vers', 'vert', 'very', 'vest', 'veto',
+            'vets', 'vext', 'vial', 'vias', 'vibe', 'vice', 'vide', 'vids', 'vied', 'vier',
+            'vies', 'view', 'viga', 'vigs', 'vile', 'vill', 'vims', 'vina', 'vine', 'vino',
+            'vins', 'viny', 'viol', 'virl', 'visa', 'vise', 'vita', 'viva', 'vive', 'vivo',
+            'vlei', 'vlog', 'voes', 'vogs', 'void', 'voil', 'vola', 'vole', 'vols', 'volt',
+            'voms', 'vora', 'vote', 'vows', 'vrow', 'vugg', 'vugh', 'vugs', 'vuln', 'waes',
+            'waft', 'wage', 'wags', 'waif', 'wail', 'wain', 'wair', 'wait', 'wake', 'wale',
+            'walk', 'wall', 'waly', 'wame', 'wand', 'wane', 'wang', 'wans', 'want', 'wany',
+            'waps', 'ward', 'ware', 'wark', 'warm', 'warn', 'warp', 'wars', 'wart', 'wary',
+            'wash', 'wasp', 'wast', 'wats', 'watt', 'wauk', 'waul', 'waur', 'wave', 'wavy',
+            'waws', 'waxy', 'ways', 'weak', 'weal', 'wean', 'wear', 'webs', 'weds', 'weed',
+            'week', 'weel', 'weem', 'ween', 'weep', 'weer', 'wees', 'weet', 'weft', 'weir',
+            'weka', 'weld', 'well', 'wels', 'welt', 'wend', 'wens', 'went', 'wept', 'were',
+            'wert', 'west', 'wets', 'wham', 'whap', 'what', 'whee', 'when', 'whet', 'whew',
+            'whey', 'whid', 'whig', 'whim', 'whin', 'whip', 'whir', 'whit', 'whiz', 'whoa',
+            'whom', 'whop', 'whot', 'whow', 'whup', 'whys', 'wich', 'wick', 'wide', 'wife',
+            'wigs', 'wild', 'wile', 'will', 'wilt', 'wily', 'wimp', 'wind', 'wine', 'wing',
+            'wink', 'wino', 'wins', 'winy', 'wipe', 'wire', 'wiry', 'wise', 'wish', 'wisp',
+            'wiss', 'wist', 'wite', 'with', 'wits', 'wive', 'woad', 'woes', 'wogs', 'woke',
+            'woks', 'wold', 'wolf', 'womb', 'womp', 'wonk', 'wons', 'wont', 'wood', 'woof',
+            'wool', 'woom', 'woon', 'woos', 'woot', 'wops', 'word', 'wore', 'work', 'worm',
+            'worn', 'wort', 'wost', 'wots', 'wove', 'wows', 'wrap', 'wren', 'writ', 'wyes',
+            'wynd', 'wynn', 'wyns', 'wyte', 'xyst', 'yack', 'yaff', 'yage', 'yagi', 'yags',
+            'yahs', 'yaks', 'yald', 'yams', 'yang', 'yank', 'yaps', 'yard', 'yare', 'yarn',
+            'yaud', 'yaup', 'yawl', 'yawn', 'yawp', 'yaws', 'yays', 'yeah', 'yean', 'year',
+            'yeas', 'yech', 'yegg', 'yeld', 'yelk', 'yell', 'yelp', 'yens', 'yeps', 'yerk',
+            'yesk', 'yest', 'yeti', 'yett', 'yeuk', 'yews', 'yill', 'yins', 'yipe',
+            'yips', 'yird', 'yirr', 'ylem', 'ylke', 'ympe', 'ympt', 'yobs', 'yock', 'yodh',
+            'yods', 'yoga', 'yogh', 'yogi', 'yoke', 'yoks', 'yolk', 'yond', 'yoni', 'yore',
+            'york', 'yorp', 'yous', 'yowe', 'yowl', 'yows', 'yuan', 'yuca', 'yuch', 'yuck',
+            'yuga', 'yuke', 'yule', 'yumm', 'yump', 'yups', 'yurt', 'yutz', 'yuzu', 'ywis',
+            'zags', 'zany', 'zaps', 'zarf', 'zati', 'zeal', 'zebu', 'zeds', 'zees', 'zein',
+            'zeks', 'zeps', 'zerk', 'zero', 'zest', 'zeta', 'zeus', 'zigs', 'zill', 'zinc',
+            'zine', 'zing', 'zins', 'zips', 'ziti', 'zits', 'zizz', 'zoea', 'zoic', 'zona',
+            'zone', 'zonk', 'zoom', 'zoon', 'zoos', 'zori', 'zouk', 'zulu', 'zuni', 'zurf',
+            'zyga', 'zyme', 'zzzs'
+        ];
+
+        // DOM elements
+        const gameArea = document.getElementById('gameArea');
+        const wordInput = document.getElementById('wordInput');
+        const scoreElement = document.getElementById('score');
+        const accuracyElement = document.getElementById('accuracy');
+        const wordsTypedElement = document.getElementById('wordsTyped');
+        const startScreen = document.getElementById('startScreen');
+        const gameOver = document.getElementById('gameOver');
+        const finalScore = document.getElementById('finalScore');
+        const finalAccuracy = document.getElementById('finalAccuracy');
+        const finalWordsTyped = document.getElementById('finalWordsTyped');
+
+        // Create city skyline
+        function createCitySkyline() {
+            const cityBackground = document.getElementById('cityBackground');
+            const buildingCount = 15;
+            const windowColors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#ffe66d', '#ff6b9d'];
+
+            for (let i = 0; i < buildingCount; i++) {
+                const building = document.createElement('div');
+                building.className = 'building';
+                
+                const width = Math.random() * 80 + 40;
+                const height = Math.random() * 200 + 150;
+                const left = (i * (100 / buildingCount)) + Math.random() * 5;
+                
+                building.style.width = width + 'px';
+                building.style.height = height + 'px';
+                building.style.left = left + '%';
+                
+                // Add windows
+                const windowCount = Math.floor((width / 20) * (height / 30));
+                for (let j = 0; j < windowCount; j++) {
+                    if (Math.random() > 0.3) { // 70% chance of lit window
+                        const window = document.createElement('div');
+                        window.className = 'window';
+                        window.style.width = '8px';
+                        window.style.height = '12px';
+                        window.style.left = (Math.random() * (width - 10)) + 'px';
+                        window.style.top = (Math.random() * (height - 15)) + 'px';
+                        window.style.background = windowColors[Math.floor(Math.random() * windowColors.length)];
+                        building.appendChild(window);
+                    }
+                }
+                
+                cityBackground.appendChild(building);
+            }
+        }
+
+        // Get random word
+        function getRandomWord() {
+            return wordList[Math.floor(Math.random() * wordList.length)];
+        }
+
+        // Create raindrop word
+        function createRaindrop() {
+            if (!gameState.gameRunning) return;
+
+            const word = getRandomWord();
+            const raindrop = document.createElement('div');
+            raindrop.className = 'raindrop';
+            raindrop.textContent = word;
+            raindrop.dataset.word = word;
+            
+            const startX = Math.random() * (window.innerWidth - 200) + 100;
+            raindrop.style.left = startX + 'px';
+            
+            const duration = (5000 / gameState.fallSpeed) + 'ms';
+            raindrop.style.animationDuration = duration;
+            
+            gameArea.appendChild(raindrop);
+            
+            const wordData = {
+                element: raindrop,
+                word: word,
+                x: startX,
+                startTime: Date.now()
+            };
+            
+            gameState.activeWords.push(wordData);
+            
+            // Check if word reached bottom
+            setTimeout(() => {
+                if (gameState.activeWords.includes(wordData)) {
+                    missWord(wordData);
+                }
+            }, 5000 / gameState.fallSpeed);
+        }
+
+        // Handle word hit
+        function hitWord(wordData) {
+            wordData.element.classList.add('hit');
+            gameState.activeWords = gameState.activeWords.filter(w => w !== wordData);
+            gameState.wordsTyped++;
+            gameState.wordsCorrect++;
+            gameState.score += 10;
+            
+            setTimeout(() => {
+                wordData.element.remove();
+            }, 300);
+            
+            updateUI();
+        }
+
+        // Handle word miss
+        function missWord(wordData) {
+            if (gameState.activeWords.includes(wordData)) {
+                wordData.element.remove();
+                gameState.activeWords = gameState.activeWords.filter(w => w !== wordData);
+                gameState.wordsTyped++;
+                gameState.wordsMissed++;
+                
+                // Game over if too many missed
+                if (gameState.wordsMissed >= 5) {
+                    endGame();
+                    return;
+                }
+                
+                updateUI();
+            }
+        }
+
+        // Update UI
+        function updateUI() {
+            scoreElement.textContent = gameState.score;
+            wordsTypedElement.textContent = gameState.wordsTyped;
+            
+            if (gameState.wordsTyped > 0) {
+                const accuracy = Math.round((gameState.wordsCorrect / gameState.wordsTyped) * 100);
+                accuracyElement.textContent = accuracy + '%';
+            }
+        }
+
+        // Increase difficulty slowly
+        function increaseDifficulty() {
+            if (!gameState.gameRunning) return;
+            
+            // Very slow difficulty increase
+            gameState.difficulty += 0.01;
+            gameState.fallSpeed = 0.5 + (gameState.difficulty - 1.0) * 0.25;
+            gameState.spawnInterval = Math.max(1000, 2000 - (gameState.difficulty - 1.0) * 200);
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!gameState.gameRunning) return;
+            
+            const now = Date.now();
+            if (now - gameState.lastSpawnTime > gameState.spawnInterval) {
+                createRaindrop();
+                gameState.lastSpawnTime = now;
+            }
+            
+            // Increase difficulty every 10 seconds
+            if (Math.floor(now / 10000) !== Math.floor((now - 100) / 10000)) {
+                increaseDifficulty();
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Input handler
+        wordInput.addEventListener('input', (e) => {
+            if (!gameState.gameRunning) return;
+            
+            const input = e.target.value.toLowerCase().trim();
+            
+            if (input.length === 0) {
+                wordInput.classList.remove('correct');
+                return;
+            }
+            
+            // Find matching word
+            const matchingWord = gameState.activeWords.find(w => 
+                w.word.toLowerCase().startsWith(input)
+            );
+            
+            if (matchingWord) {
+                wordInput.classList.add('correct');
+                
+                if (input === matchingWord.word.toLowerCase()) {
+                    hitWord(matchingWord);
+                    wordInput.value = '';
+                    wordInput.classList.remove('correct');
+                }
+            } else {
+                wordInput.classList.remove('correct');
+            }
+        });
+
+        // Start game
+        function startGame() {
+            startScreen.classList.add('hidden');
+            gameState.gameRunning = true;
+            gameState.score = 0;
+            gameState.wordsTyped = 0;
+            gameState.wordsCorrect = 0;
+            gameState.wordsMissed = 0;
+            gameState.activeWords = [];
+            gameState.difficulty = 1.0;
+            gameState.fallSpeed = 0.5;
+            gameState.spawnInterval = 2000;
+            gameState.lastSpawnTime = Date.now();
+            
+            wordInput.focus();
+            updateUI();
+            gameLoop();
+        }
+
+        // End game
+        function endGame() {
+            gameState.gameRunning = false;
+            finalScore.textContent = gameState.score;
+            finalAccuracy.textContent = (gameState.wordsTyped > 0 
+                ? Math.round((gameState.wordsCorrect / gameState.wordsTyped) * 100) 
+                : 0) + '%';
+            finalWordsTyped.textContent = gameState.wordsTyped;
+            
+            // Remove all active words
+            gameState.activeWords.forEach(w => w.element.remove());
+            gameState.activeWords = [];
+            
+            gameOver.classList.add('show');
+            wordInput.value = '';
+        }
+
+        // Restart game
+        function restartGame() {
+            gameOver.classList.remove('show');
+            startGame();
+        }
+
+        // Initialize
+        createCitySkyline();
+        
+        // Allow Enter key to start game
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !gameState.gameRunning && !startScreen.classList.contains('hidden')) {
+                startGame();
+            }
+        });
+    </script>
+</body>
+</html>
