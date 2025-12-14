@@ -164,6 +164,28 @@
             }
         }
 
+        /* Particle Animation */
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 200;
+            box-shadow: 0 0 6px currentColor;
+        }
+
+        @keyframes particleBurst {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty)) scale(0);
+                opacity: 0;
+            }
+        }
+
         /* Input Area */
         .input-container {
             position: absolute;
@@ -294,6 +316,37 @@
             background: #00ffff;
             transform: scale(1.05);
         }
+
+        .level-selector {
+            display: flex;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .level-button {
+            padding: 12px 30px;
+            font-size: 18px;
+            background: rgba(135, 206, 235, 0.3);
+            color: white;
+            border: 2px solid rgba(135, 206, 235, 0.8);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .level-button:hover {
+            background: rgba(135, 206, 235, 0.6);
+            border-color: #87ceeb;
+            transform: scale(1.05);
+        }
+
+        .level-button.selected {
+            background: #87ceeb;
+            color: #0a0a0a;
+            border-color: #87ceeb;
+            box-shadow: 0 0 20px rgba(135, 206, 235, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -317,6 +370,10 @@
                     <div class="stat-label">Words Typed</div>
                     <div class="stat-value" id="wordsTyped">0</div>
                 </div>
+                <div class="stat-item">
+                    <div class="stat-label">Level</div>
+                    <div class="stat-value" id="level">Intermediate</div>
+                </div>
             </div>
         </div>
 
@@ -333,8 +390,12 @@
         <div class="start-screen" id="startScreen">
             <h1>🌧️ Typing Rain</h1>
             <p>Type the falling words before they reach the bottom!</p>
-            <p>Words are 4 letters only. Difficulty increases slowly.</p>
-            <button onclick="startGame()">Start Game</button>
+            <p>Words are 4 letters only. Select your difficulty level:</p>
+            <div class="level-selector">
+                <button class="level-button" data-level="beginner" onclick="selectLevel('beginner')">Beginner</button>
+                <button class="level-button selected" data-level="intermediate" onclick="selectLevel('intermediate')">Intermediate</button>
+                <button class="level-button" data-level="expert" onclick="selectLevel('expert')">Expert</button>
+            </div>
         </div>
 
         <!-- Game Over Overlay -->
@@ -359,7 +420,8 @@
             difficulty: 1.0,
             spawnInterval: 2000, // milliseconds
             fallSpeed: 1.0, // pixels per frame
-            lastSpawnTime: 0
+            lastSpawnTime: 0,
+            level: 'intermediate' // Default level
         };
 
         // 4-letter word list
@@ -592,6 +654,7 @@
         const scoreElement = document.getElementById('score');
         const accuracyElement = document.getElementById('accuracy');
         const wordsTypedElement = document.getElementById('wordsTyped');
+        const levelElement = document.getElementById('level');
         const startScreen = document.getElementById('startScreen');
         const gameOver = document.getElementById('gameOver');
         const finalScore = document.getElementById('finalScore');
@@ -640,6 +703,41 @@
             return wordList[Math.floor(Math.random() * wordList.length)];
         }
 
+        // Create particle explosion
+        function createParticleExplosion(x, y) {
+            const particleColors = ['#ffd700', '#ff6b9d', '#4ecdc4', '#ffe66d', '#ff6b6b', '#95e1d3', '#f38181'];
+            const particleCount = 15;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                
+                // Random color
+                const color = particleColors[Math.floor(Math.random() * particleColors.length)];
+                particle.style.background = color;
+                particle.style.color = color;
+                
+                // Random direction and distance
+                const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.5;
+                const distance = 80 + Math.random() * 60;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+                
+                particle.style.left = x + 'px';
+                particle.style.top = y + 'px';
+                particle.style.setProperty('--tx', tx + 'px');
+                particle.style.setProperty('--ty', ty + 'px');
+                particle.style.animation = 'particleBurst 1s ease-out forwards';
+                
+                gameArea.appendChild(particle);
+                
+                // Remove particle after animation
+                setTimeout(() => {
+                    particle.remove();
+                }, 1000);
+            }
+        }
+
         // Create raindrop word
         function createRaindrop() {
             if (!gameState.gameRunning) return;
@@ -677,6 +775,14 @@
 
         // Handle word hit
         function hitWord(wordData) {
+            // Get word position for particle explosion
+            const rect = wordData.element.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            
+            // Create particle explosion
+            createParticleExplosion(x, y);
+            
             wordData.element.classList.add('hit');
             gameState.activeWords = gameState.activeWords.filter(w => w !== wordData);
             gameState.wordsTyped++;
@@ -713,19 +819,37 @@
             scoreElement.textContent = gameState.score;
             wordsTypedElement.textContent = gameState.wordsTyped;
             
+            // Capitalize first letter of level
+            const levelName = gameState.level.charAt(0).toUpperCase() + gameState.level.slice(1);
+            levelElement.textContent = levelName;
+            
             if (gameState.wordsTyped > 0) {
                 const accuracy = Math.round((gameState.wordsCorrect / gameState.wordsTyped) * 100);
                 accuracyElement.textContent = accuracy + '%';
             }
         }
 
-        // Increase difficulty slowly
+        // Increase difficulty based on level
         function increaseDifficulty() {
             if (!gameState.gameRunning) return;
             
-            // Very slow difficulty increase
-            gameState.difficulty += 0.01;
-            gameState.fallSpeed = 0.5 + (gameState.difficulty - 1.0) * 0.25;
+            // Difficulty increase delta based on level
+            let difficultyDelta = 0.01; // Default for intermediate/expert
+            let speedMultiplier = 0.25; // Default for intermediate
+            let baseSpeed = 0.5; // Default for intermediate
+            
+            if (gameState.level === 'beginner') {
+                difficultyDelta = 0.002; // Very minimal increase
+                speedMultiplier = 0.1; // Very slow speed increase
+                baseSpeed = 0.25; // Half of intermediate
+            } else if (gameState.level === 'expert') {
+                difficultyDelta = 0.01; // Regular increase
+                speedMultiplier = 0.5; // Faster speed increase
+                baseSpeed = 1.0; // Double of intermediate
+            }
+            
+            gameState.difficulty += difficultyDelta;
+            gameState.fallSpeed = baseSpeed + (gameState.difficulty - 1.0) * speedMultiplier;
             gameState.spawnInterval = Math.max(1000, 2000 - (gameState.difficulty - 1.0) * 200);
         }
 
@@ -776,6 +900,18 @@
             }
         });
 
+        // Select level and start game
+        function selectLevel(level) {
+            gameState.level = level;
+            // Update button styles
+            document.querySelectorAll('.level-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.querySelector(`[data-level="${level}"]`).classList.add('selected');
+            // Start the game immediately
+            startGame();
+        }
+
         // Start game
         function startGame() {
             startScreen.classList.add('hidden');
@@ -786,7 +922,16 @@
             gameState.wordsMissed = 0;
             gameState.activeWords = [];
             gameState.difficulty = 1.0;
-            gameState.fallSpeed = 0.5;
+            
+            // Set initial speed based on level
+            if (gameState.level === 'beginner') {
+                gameState.fallSpeed = 0.25; // Half of intermediate
+            } else if (gameState.level === 'intermediate') {
+                gameState.fallSpeed = 0.5; // Current setting
+            } else if (gameState.level === 'expert') {
+                gameState.fallSpeed = 1.0; // Double of intermediate
+            }
+            
             gameState.spawnInterval = 2000;
             gameState.lastSpawnTime = Date.now();
             
