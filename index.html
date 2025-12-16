@@ -375,6 +375,10 @@
                     <div class="stat-label">Level</div>
                     <div class="stat-value" id="level">Intermediate</div>
                 </div>
+                <div class="stat-item">
+                    <div class="stat-label">High Score</div>
+                    <div class="stat-value" id="highScore">0</div>
+                </div>
             </div>
         </div>
 
@@ -403,8 +407,10 @@
         <div class="game-over" id="gameOver">
             <h1>Game Over!</h1>
             <p>Final Score: <span id="finalScore">0</span></p>
+            <p id="newHighScore" style="display: none; color: #ffd700; font-size: 24px; font-weight: bold; margin: 10px 0;">🎉 New High Score! 🎉</p>
             <p>Accuracy: <span id="finalAccuracy">0%</span></p>
             <p>Words Typed: <span id="finalWordsTyped">0</span></p>
+            <p>High Score: <span id="finalHighScore">0</span></p>
             <button onclick="restartGame()">Play Again</button>
         </div>
     </div>
@@ -661,6 +667,9 @@
         const finalScore = document.getElementById('finalScore');
         const finalAccuracy = document.getElementById('finalAccuracy');
         const finalWordsTyped = document.getElementById('finalWordsTyped');
+        const highScoreElement = document.getElementById('highScore');
+        const finalHighScore = document.getElementById('finalHighScore');
+        const newHighScoreMessage = document.getElementById('newHighScore');
 
         // Create city skyline
         function createCitySkyline() {
@@ -697,6 +706,22 @@
                 
                 cityBackground.appendChild(building);
             }
+        }
+
+        // High score management with localStorage
+        function getHighScore() {
+            const saved = localStorage.getItem('typingRainHighScore');
+            return saved ? parseInt(saved, 10) : 0;
+        }
+
+        function saveHighScore(score) {
+            localStorage.setItem('typingRainHighScore', score.toString());
+        }
+
+        function updateHighScoreDisplay() {
+            const highScore = getHighScore();
+            highScoreElement.textContent = highScore;
+            finalHighScore.textContent = highScore;
         }
 
         // Get random word
@@ -950,6 +975,16 @@
                 : 0) + '%';
             finalWordsTyped.textContent = gameState.wordsTyped;
             
+            // Check and update high score
+            const currentHighScore = getHighScore();
+            if (gameState.score > currentHighScore) {
+                saveHighScore(gameState.score);
+                updateHighScoreDisplay();
+                newHighScoreMessage.style.display = 'block';
+            } else {
+                newHighScoreMessage.style.display = 'none';
+            }
+            
             // Remove all active words
             gameState.activeWords.forEach(w => w.element.remove());
             gameState.activeWords = [];
@@ -966,6 +1001,7 @@
 
         // Initialize
         createCitySkyline();
+        updateHighScoreDisplay(); // Load and display high score on page load
         
         // Allow Enter key to start game
         document.addEventListener('keydown', (e) => {
